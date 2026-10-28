@@ -2,7 +2,7 @@ name: Build Rakku APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
   workflow_dispatch:
 
 jobs:
