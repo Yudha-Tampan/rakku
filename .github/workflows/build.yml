@@ -1,0 +1,62 @@
+name: Build Rakku APK
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: temurin
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.9'
+          channel: stable
+          cache: true
+
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
+
+      - name: Create key.properties
+        run: |
+          cat > android/key.properties << PROPS
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          storeFile=release.keystore
+          PROPS
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Rename APK
+        run: mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/rakku.apk
+
+      - name: Verify APK integrity
+        run: |
+          unzip -tq build/app/outputs/flutter-apk/rakku.apk
+          sha256sum build/app/outputs/flutter-apk/rakku.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v5
+        with:
+          name: rakku-release
+          path: build/app/outputs/flutter-apk/rakku.apk
+          if-no-files-found: error
+          retention-days: 7
